@@ -43,6 +43,40 @@ kc.delete_password("myapp", "user@email.com")
 | `set_internet_password(server, account, password, protocol, path)` | `None` | Store an internet password |
 | `get_internet_password(server, account)` | `str \| None` | Retrieve an internet password |
 
+## CLI
+
+SwiftKeychain includes a command-line tool `skc` for quick Keychain operations:
+
+```bash
+# Store a password (prompts if password omitted)
+skc set myapp user@email.com s3cret
+
+# Retrieve a password
+skc get myapp user@email.com
+
+# Retrieve password only (for scripting)
+skc get myapp user@email.com -q
+
+# Find all accounts for a service
+skc find myapp
+
+# Delete a password
+skc delete myapp user@email.com
+
+# Internet passwords
+skc set-internet api.example.com bot token123
+skc get-internet api.example.com bot
+```
+
+| Command | Description |
+|---------|-------------|
+| `skc set <service> <account> [password]` | Store a password (prompts if omitted) |
+| `skc get <service> <account> [-q]` | Retrieve a password (`-q` for raw output) |
+| `skc delete <service> <account>` | Delete a password |
+| `skc find <service>` | List all accounts for a service |
+| `skc set-internet <server> <account> [password]` | Store an internet password |
+| `skc get-internet <server> <account> [-q]` | Retrieve an internet password |
+
 ## Examples
 
 See [`swiftkeychain/examples/demo.py`](swiftkeychain/examples/demo.py) for a full demo.
