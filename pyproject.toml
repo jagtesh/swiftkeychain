@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "swiftkeychain"
-version = "0.1.0"
+version = "0.2.2"
 description = "macOS Keychain access from Python — powered by Swift & ApplePy"
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
@@ -20,5 +20,11 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/jagtesh/swiftkeychain"
 
+[project.scripts]
+skc = "swiftkeychain.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["swiftkeychain*"]
+
+[tool.setuptools.package-data]
+swiftkeychain = ["*.so"]

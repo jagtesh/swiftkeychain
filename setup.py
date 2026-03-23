@@ -1,11 +1,12 @@
 """SwiftKeychain build — compiles Swift source into a Python-loadable .so"""
 import os
+import shutil
 import subprocess
 import sys
 import sysconfig
 from pathlib import Path
 
-from setuptools import setup
+from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
 
@@ -16,16 +17,13 @@ class SwiftBuildExt(build_ext):
         if sys.platform != "darwin":
             raise RuntimeError("swiftkeychain only supports macOS")
 
-        swift_dir = Path(__file__).parent / "swift"
+        src_dir = Path(__file__).parent
+        swift_dir = src_dir / "swift"
         pkg_config_path = sysconfig.get_config_var("LIBPC") or ""
 
         env = os.environ.copy()
         env["PKG_CONFIG_PATH"] = pkg_config_path
 
-        # Build the dynamic library
-        # Note: debug build is used because release mode's whole-module
-        # optimization can strip @_cdecl symbols. A future SPM plugin
-        # will handle release builds with proper symbol preservation.
         print("🔨 Building Swift extension...")
         subprocess.check_call(
             ["swift", "build"],
@@ -33,20 +31,33 @@ class SwiftBuildExt(build_ext):
             env=env,
         )
 
-        # Find the built .dylib
-        build_dir = swift_dir / ".build" / "debug"
-        dylib = build_dir / "libSwiftKeychain.dylib"
-        if not dylib.exists():
-            raise RuntimeError(f"Build succeeded but {dylib} not found")
+        # Find the built .dylib (check platform-specific and legacy paths)
+        lib_name = "libSwiftKeychain.dylib"
+        candidates = [
+            swift_dir / ".build" / "debug" / lib_name,
+            swift_dir / ".build" / "arm64-apple-macosx" / "debug" / lib_name,
+        ]
+        dylib = next((p for p in candidates if p.exists()), None)
+        if dylib is None:
+            raise RuntimeError(f"Build succeeded but {lib_name} not found in .build/")
 
-        # Copy to Python package as .so
-        dest = Path(__file__).parent / "swiftkeychain" / "swiftkeychain.so"
-        print(f"📦 Installing {dylib.name} → {dest}")
-        import shutil
-        shutil.copy2(dylib, dest)
+        dest_dir = src_dir / "swiftkeychain" / "_native"
+        dest_dir.mkdir(exist_ok=True)
+        src_dest = dest_dir / "swiftkeychain.so"
+        print(f"📦 Installing {dylib.name} → {src_dest}")
+        shutil.copy2(dylib, src_dest)
 
-    def get_ext_filename(self, ext_name):
-        return ext_name + ".so"
+        # Also copy to build_lib (for regular pip install / wheel builds)
+        if self.build_lib:
+            build_dest = Path(self.build_lib) / "swiftkeychain" / "_native" / "swiftkeychain.so"
+            build_dest.parent.mkdir(parents=True, exist_ok=True)
+            print(f"📦 Installing {dylib.name} → {build_dest}")
+            shutil.copy2(dylib, build_dest)
 
 
-setup(cmdclass={"build_ext": SwiftBuildExt})
+# Dummy extension so setuptools invokes build_ext
+# The actual compilation is done by SwiftBuildExt via `swift build`
+setup(
+    ext_modules=[Extension("swiftkeychain._swift", sources=[])],
+    cmdclass={"build_ext": SwiftBuildExt},
+)
